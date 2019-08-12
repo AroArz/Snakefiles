@@ -1,0 +1,100 @@
+# vim: syntax=python expandtab tabstop=4
+# MIDAS PIPELINE FOR ESCHERICHIA
+# Aron Arzoomand 9/8 2019
+
+
+        #export MIDAS_DB=/MIDAS/database/midas_db_v1.2      ###copy these into the shell prior to starting, make sure the paths are pointing appropriately####
+        #export PYTHONPATH=$PYTHONPATH:/MIDAS               ###copy these into the shell prior to starting, make sure the paths are pointing appropriately####
+        #export PATH=$PATH:/MIDAS/scripts                   ###copy these into the shell prior to starting, make sure the paths are pointing appropriately####
+
+        #run with shell: $snakemake --use-conda --allow-ambiguity
+
+SAMPLES = glob_wildcards("input/{sample}_R1.filtered_human.fq.gz").sample
+print(SAMPLES)
+
+rule all:
+    input:
+        "output/merged/genes",
+        "output/merged/snps",
+
+
+rule genes:
+    input:
+        R1="input/{sample}_R1.filtered_human.fq.gz",
+        R2="input/{sample}_R2.filtered_human.fq.gz"
+    output:
+        directory("output/{sample}")
+    conda:
+        "envs/MIDAS.yml"
+    threads: 10
+    shell:
+        """
+        run_midas.py \
+            genes \
+            -t16 \
+            output/{wildcards.sample}/ \
+            --species_id Escherichia_coli_58110,Escherichia_fergusonii_56914,Escherichia_coli_57907,Escherichia_albertii_56276,Escherichia_hermannii_58626,Escherichia_vulneris_58627,Escherichia_coli_53492 \
+            -1 {input.R1} \
+            -2 {input.R2} \
+        """
+
+rule snps:
+    input:
+        R1="input/{sample}_R1.filtered_human.fq.gz",
+        R2="input/{sample}_R2.filtered_human.fq.gz"
+    output:
+        directory("output/{sample}")
+    conda:
+        "envs/MIDAS.yml"
+    threads: 10
+    shell:
+        """  
+        run_midas.py \
+            snps \
+            -t16 \
+            output/{wildcards.sample}/ \
+            --species_id Escherichia_coli_58110,Escherichia_fergusonii_56914,Escherichia_coli_57907,Escherichia_albertii_56276,Escherichia_hermannii_58626,Escherichia_vulneris_58627,Escherichia_coli_53492 \
+            -1 {input.R1} \
+            -2 {input.R2} \
+        """
+
+
+
+rule merge_genes:
+    input:
+        expand("output/{sample}", sample=SAMPLES)
+    output:
+        directory("output/merged/genes")
+    conda:
+        "envs/MIDAS.yml"
+    threads: 10
+    shell:
+        """
+        merge_midas.py \
+            genes \
+            output/merged/genes \
+            --species_id Escherichia_coli_58110,Escherichia_fergusonii_56914,Escherichia_coli_57907,Escherichia_albertii_56276,Escherichia_hermannii_58626,Escherichia_vulneris_58627,Escherichia_coli_53492 \
+            -i output/ \
+            -t dir \
+        """
+
+
+
+
+rule merge_snps:
+    input:
+        expand("output/{sample}", sample=SAMPLES)
+    output:
+        directory("output/merged/snps")
+    conda:
+        "envs/MIDAS.yml"
+    threads: 20
+    shell:
+        """
+        merge_midas.py \
+            snps \
+            output/merged/snps \
+            --species_id Escherichia_coli_58110,Escherichia_fergusonii_56914,Escherichia_coli_57907,Escherichia_albertii_56276,Escherichia_hermannii_58626,Escherichia_vulneris_58627,Escherichia_coli_53492 \
+            -i output/ \
+            -t dir \
+        """
