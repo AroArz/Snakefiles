@@ -1,0 +1,53 @@
+# vim: syntax=python expandtab tabstop=4
+# MEGAHIT
+# Aron Arzoomand 7/8 2019
+
+NOVASEQ = glob_wildcards("/ctmr/projects/Aron/NovaSeq/nohuman/filtered_human/{sampleNS}_R1.filtered_human.fq.gz").sampleNS
+MISEQ = glob_wildcards("/ctmr/projects/Aron/Miseq/{sampleMS}_R1_nohuman.fq").sampleMS
+print(NOVASEQ)
+print(MISEQ)
+
+
+rule all:
+    input: 
+        assembliesNS=expand("output/NovaSeq/{sampleNS}/{sampleNS}.contigs.fa", sampleNS=NOVASEQ),
+        assembliesMS=expand("output/Miseq/{sampleMS}/{sampleMS}.contigs.fa", sampleMS=MISEQ),
+
+rule assemble_novaseq:
+    input:
+        Read1="/ctmr/projects/Aron/NovaSeq/nohuman/filtered_human/{sampleNS}_R1.filtered_human.fq.gz",
+        Read2="/ctmr/projects/Aron/NovaSeq/nohuman/filtered_human/{sampleNS}_R2.filtered_human.fq.gz"
+    output: 
+        "output/NovaSeq/{sampleNS}/{sampleNS}.contigs.fa"
+    conda:
+        "envs/assembly.yaml"
+    threads:
+        20
+    shell:
+        """
+        rm -rvf output/NovaSeq/{wildcards.sampleNS}
+        megahit -1 {input.Read1} -2 {input.Read2} --num-cpu-threads 20 -o output/NovaSeq/{wildcards.sampleNS} --out-prefix {wildcards.sampleNS}
+        """
+
+
+rule assemble_miseq:
+    input:
+        R1="/ctmr/projects/Aron/Miseq/{sampleMS}_R1_nohuman.fq",
+        R2="/ctmr/projects/Aron/Miseq/{sampleMS}_R2_nohuman.fq",
+    output:
+        "output/Miseq/{sampleMS}/{sampleMS}.contigs.fa",
+    conda:
+         "envs/assembly.yaml"
+    threads:
+        10
+    shell:
+        """
+        rm -rfv output/Miseq/{wildcards.sampleMS}
+        megahit -1 {input.R1} -2 {input.R2} --num-cpu-threads {threads} -o output/Miseq/{wildcards.sampleMS} --out-prefix {wildcards.sampleMS}
+        """
+
+
+
+
+
+
