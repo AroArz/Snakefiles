@@ -1,0 +1,66 @@
+### Fastspar
+### Aron Arzoomand
+### 10/8/2021
+
+FILES = glob_wildcards("genus/{file}_metaphlan_abs.tsv").file
+print(FILES)
+
+
+rule all:
+	input:
+		expand("genus/pvalues/{file}_pvalues.tsv", file=FILES)
+
+
+
+rule fastspar:
+	input:
+		tables="genus/{file}_metaphlan_abs.tsv"
+	output:
+		corr="genus/corr/{file}_correlation.tsv",
+		cov="genus/cov/{file}_covariance.tsv",
+	conda:
+		"envs/fastspar.yml"
+	shell:
+		"""
+		fastspar \
+			--otu_table {input.tables} \
+			--correlation {output.corr} \
+			--covariance {output.cov} \
+			-y
+		"""
+		
+
+rule bootstrap:
+	"""inferr bootstrap counts, permutations"""
+	input:
+		tables="genus/{file}_metaphlan_abs.tsv",
+		corr="genus/corr/{file}_correlation.tsv",
+	output:
+		pvalues="genus/pvalues/{file}_pvalues.tsv",
+	conda:
+		"envs/fastspar.yml"
+	params:
+		bootstrap_counts="genus/bootstrap_counts/{file}/{file}_bootstrap",
+		bootstrap_correlation="genus/bootstrap_corr/{file}/",
+	shell:
+		"""
+		mkdir -p genus/bootstrap_counts/{wildcards.file}
+		fastspar_bootstrap \
+			--otu_table {input.tables} \
+			--number 1000 \
+			--prefix {params.bootstrap_counts}	
+
+		mkdir -p {params.bootstrap_correlation}
+		parallel fastspar \
+			--otu_table {{}} \
+			--correlation {params.bootstrap_correlation}/cor_{{/}} \
+			--covariance {params.bootstrap_correlation}/cov_{{/}} \
+			-i 5 ::: {params.bootstrap_counts}*
+
+		fastspar_pvalues \
+			--otu_table {input.tables} \
+			--correlation {input.corr} \
+			--prefix {params.bootstrap_correlation}/cor_{wildcards.file}_bootstrap_ \
+			--permutations 1000 \
+			--outfile {output.pvalues} 
+		"""
